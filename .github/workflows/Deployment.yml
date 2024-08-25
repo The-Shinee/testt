@@ -1,12 +1,12 @@
-name: Deploy to EC2
+name: CI/CD Pipeline
 
 on:
   push:
     branches:
-      - master
+      - main
 
 jobs:
-  deploy:
+  build-and-deploy:
     runs-on: ubuntu-latest
 
     steps:
@@ -23,7 +23,13 @@ jobs:
         run: chmod +x gradlew
 
       - name: Build with Gradle
+        run: ./gradlew build
+
+      - name: Package application (bootJar)
         run: ./gradlew bootJar
+
+      - name: List build artifacts
+        run: ls -l build/libs/
 
       - name: Deploy to EC2
         env:
@@ -35,6 +41,6 @@ jobs:
           echo "$EC2_KEY" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -H $EC2_HOST >> ~/.ssh/known_hosts
-          scp -o StrictHostKeyChecking=no build/libs/your-app.jar $EC2_USER@$EC2_HOST:~/app.jar
+          scp -o StrictHostKeyChecking=no build/libs/*.jar $EC2_USER@$EC2_HOST:~/app.jar
           ssh -o StrictHostKeyChecking=no $EC2_USER@$EC2_HOST "pkill -f 'java -jar' || true"
           ssh -o StrictHostKeyChecking=no $EC2_USER@$EC2_HOST "nohup java -jar ~/app.jar > /dev/null 2>&1 &"
