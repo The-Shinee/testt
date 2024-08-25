@@ -11,7 +11,7 @@ jobs:
 
     steps:
       - name: Check out code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3  # 최신 버전 사용
 
       - name: Set up JDK 21
         uses: actions/setup-java@v3
@@ -36,7 +36,7 @@ jobs:
         run: |
           EXECUTABLE_JAR=$(ls build/libs/*-SNAPSHOT.jar | grep -v 'plain' | head -n 1)
           echo "Found executable JAR file: $EXECUTABLE_JAR"
-          echo "::set-output name=executable_jar::$EXECUTABLE_JAR"
+          echo "executable_jar=$EXECUTABLE_JAR" >> $GITHUB_ENV
 
       - name: Deploy to EC2
         env:
@@ -48,8 +48,7 @@ jobs:
           echo "$EC2_KEY" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -H $EC2_HOST >> ~/.ssh/known_hosts
-          EXECUTABLE_JAR=${{ steps.find_executable_jar.outputs.executable_jar }}
-          echo "Deploying $EXECUTABLE_JAR to EC2"
-          scp -o StrictHostKeyChecking=no $EXECUTABLE_JAR $EC2_USER@$EC2_HOST:/home/$EC2_USER/app.jar || { echo 'Failed to copy jar'; exit 1; }
+          echo "Deploying $executable_jar to EC2"
+          scp -o StrictHostKeyChecking=no $executable_jar $EC2_USER@$EC2_HOST:/home/$EC2_USER/app.jar || { echo 'Failed to copy jar'; exit 1; }
           ssh -o StrictHostKeyChecking=no $EC2_USER@$EC2_HOST "pkill -f 'java -jar' || echo 'No running app to kill'"
           ssh -o StrictHostKeyChecking=no $EC2_USER@$EC2_HOST "nohup java -jar /home/$EC2_USER/app.jar > /dev/null 2>&1 &" || { echo 'Failed to start app'; exit 1; }
