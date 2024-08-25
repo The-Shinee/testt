@@ -41,6 +41,6 @@ jobs:
           echo "$EC2_KEY" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -H $EC2_HOST >> ~/.ssh/known_hosts
-          scp -o StrictHostKeyChecking=no build/libs/*.jar $EC2_USER@$EC2_HOST:~/app.jar || { echo 'Failed to copy jar'; exit 1; }
+          scp -o StrictHostKeyChecking=no build/libs/*.jar $EC2_USER@$EC2_HOST:/home/$EC2_USER/app.jar  || { echo 'Failed to copy jar'; exit 1; }
           ssh -o StrictHostKeyChecking=no $EC2_USER@$EC2_HOST "pkill -f 'java -jar' || echo 'No running app to kill'"
           ssh -o StrictHostKeyChecking=no $EC2_USER@$EC2_HOST "nohup java -jar ~/app.jar > /dev/null 2>&1 &" || { echo 'Failed to start app'; exit 1; }
