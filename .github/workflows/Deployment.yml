@@ -1,0 +1,45 @@
+name: Zero Downtime Deployment
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v2
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v3
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Build with Gradle
+        run: ./gradlew bootJar
+
+      - name: Deploy to Blue/Green Environment
+        env:
+          EC2_HOST_BLUE: ${{ secrets.EC2_HOST_BLUE }}
+          EC2_HOST_GREEN: ${{ secrets.EC2_HOST_GREEN }}
+          EC2_USER: ${{ secrets.EC2_USER }}
+          EC2_KEY: ${{ secrets.EC2_KEY }}
+        run: |
+          # 트래픽 전환을 관리하는 로드 밸런서에 새로운 인스턴스를 추가
+          ssh -i ~/.ssh/id_rsa $EC2_USER@$EC2_HOST_GREEN 'sudo service myapp stop || true'
+          scp -i ~/.ssh/id_rsa build/libs/myapp.jar $EC2_USER@$EC2_HOST_GREEN:/path/to/app.jar
+          ssh -i ~/.ssh/id_rsa $EC2_USER@$EC2_HOST_GREEN 'nohup java -jar /path/to/app.jar &'
+
+          # 새로운 인스턴스가 준비되면, 트래픽을 전환
+          ssh -i ~/.ssh/id_rsa $EC2_USER@$EC2_HOST_BLUE 'sudo service myapp stop'
+          ssh -i ~/.ssh/id_rsa $EC2_USER@$EC2_HOST_GREEN 'sudo service myapp start'
+
+          # 필요한 경우, 이전 인스턴스(Blue)의 롤백
+          ssh -i ~/.ssh/id_rsa $EC2_USER@$EC2_HOST_BLUE 'sudo service myapp start || true'
