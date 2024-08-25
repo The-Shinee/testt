@@ -31,16 +31,25 @@ jobs:
       - name: List build artifacts
         run: ls -l build/libs/
 
+      - name: Find executable JAR file
+        id: find_executable_jar
+        run: |
+          EXECUTABLE_JAR=$(ls build/libs/*-SNAPSHOT.jar | grep -v 'plain' | head -n 1)
+          echo "Found executable JAR file: $EXECUTABLE_JAR"
+          echo "::set-output name=executable_jar::$EXECUTABLE_JAR"
+
       - name: Deploy to EC2
         env:
           EC2_HOST: ${{ secrets.EC2_HOST }}
-          EC2_USER: ${{ secrets.EC2_USER }}
+          EC2_USER: ubuntu
           EC2_KEY: ${{ secrets.EC2_KEY }}
         run: |
           mkdir -p ~/.ssh
           echo "$EC2_KEY" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -H $EC2_HOST >> ~/.ssh/known_hosts
-          scp -o StrictHostKeyChecking=no build/libs/*.jar $EC2_USER@$EC2_HOST:/home/$EC2_USER/app.jar  || { echo 'Failed to copy jar'; exit 1; }
+          EXECUTABLE_JAR=${{ steps.find_executable_jar.outputs.executable_jar }}
+          echo "Deploying $EXECUTABLE_JAR to EC2"
+          scp -o StrictHostKeyChecking=no $EXECUTABLE_JAR $EC2_USER@$EC2_HOST:/home/$EC2_USER/app.jar || { echo 'Failed to copy jar'; exit 1; }
           ssh -o StrictHostKeyChecking=no $EC2_USER@$EC2_HOST "pkill -f 'java -jar' || echo 'No running app to kill'"
-          ssh -o StrictHostKeyChecking=no $EC2_USER@$EC2_HOST "nohup java -jar ~/app.jar > /dev/null 2>&1 &" || { echo 'Failed to start app'; exit 1; }
+          ssh -o StrictHostKeyChecking=no $EC2_USER@$EC2_HOST "nohup java -jar /home/$EC2_USER/app.jar > /dev/null 2>&1 &" || { echo 'Failed to start app'; exit 1; }
