@@ -41,7 +41,5 @@ jobs:
           cd /path/to/deploy/directory
           ./stop_app.sh || true
           rm -rf *
-          exit
-        script_after: |
           scp -i ~/.ssh/id_rsa -P ${{ secrets.EC2_PORT }} build_artifacts/*.jar ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:/path/to/deploy/directory/
-          ssh -i ~/.ssh/id_rsa -p ${{ secrets.EC2_PORT }} ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} 'bash -s' < ./start_app.sh
+          ./start_app.sh
